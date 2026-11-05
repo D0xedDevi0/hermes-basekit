@@ -1,0 +1,56 @@
+name: basekit
+version: 1.0.0
+manifest_version: 2
+api_version: 1
+description: >-
+  Live Base (chain 8453) intelligence for Hermes: network and gas state with USD
+  cost estimates, wallet portfolios, human-readable transaction receipts, token
+  facts with real proxy detection, and windowed transfer / approval reads.
+
+  Read-only by construction — no private key, no signing, no transactions, no
+  PyPI dependencies (standard library only). Ships six agent tools, a
+  pre_llm_call hook that injects live Base state only on Base-related turns, a
+  /basekit slash command, a hermes basekit CLI command, a desktop pane and
+  status-bar chip, and a bundled skill.
+author: D0XEDDEV
+license: MIT
+homepage: https://github.com/D0xedDevi0/hermes-basekit
+tags: [base, onchain, evm, web3, read-only, dashboard]
+python_dependencies: []
+requires_env: []
+provides_tools:
+  - base_network
+  - base_portfolio
+  - base_tx
+  - base_token
+  - base_activity
+  - base_allowances
+provides_hooks: [pre_llm_call]
+config_schema:
+  rpc_url:
+    type: str
+    default: "https://base-rpc.publicnode.com"
+    description: >-
+      Base JSON-RPC endpoint. The default is a keyless public endpoint that also
+      serves eth_getLogs; point this at your own node or provider (Alchemy,
+      QuickNode, Coinbase) for wider log windows and higher rate limits.
+  watch_address:
+    type: str
+    default: ""
+    description: >-
+      Optional wallet address to track in the desktop pane and the status-bar
+      chip. Leave empty to only show network state.
+  inject_chain_context:
+    type: bool
+    default: true
+    description: >-
+      Inject one line of live Base state (block, gas, ETH price, transfer cost)
+      into turns that are actually about Base. Off means zero prompt cost.
+  basescan_api_key:
+    type: secret
+    env: BASESCAN_API_KEY
+    default: ""
+    description: >-
+      Optional Basescan/Etherscan API key. Used only by base_token for
+      source-code verification; without it that field reports "not_configured"
+      instead of guessing.

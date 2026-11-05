@@ -99,6 +99,27 @@ the ones above:
   in Node against a stub SDK — a `ReferenceError` at registration that would have shown
   as "nothing appeared" in the app.
 
+## What it touches (disclosure)
+
+Stated plainly, because a user should know this before installing:
+
+- **Outbound HTTPS only**, to a fixed set of hosts — no other network egress:
+  - Base JSON-RPC: `mainnet.base.org`, `base-rpc.publicnode.com`, `base.drpc.org`,
+    `base.meowrpc.com` (the client fails over across these and reports which answered).
+  - Prices: `coins.llama.fi` (DefiLlama) and `api.coinbase.com` (spot fallback).
+  - `api.etherscan.io` **only** if you set the optional Basescan key, and only for
+    `base_token`'s source-verification field.
+- **Reads chain data only.** No files outside its own directory, no shell commands, no
+  background processes, no telemetry, no analytics, no usage reporting.
+- **The only thing it writes** is a small JSONL read-ledger (which tool asked the chain
+  what, when) under `<HERMES_HOME>/plugin-data/basekit/` — that's what feeds the desktop
+  pane's recent-activity list.
+- **Credentials:** the optional Basescan key is read through Hermes's own secret scope
+  (`agent.secret_scope.get_secret`), never from `.env`, `auth.json`, a keychain or any
+  other store. basekit stores no credential of its own.
+- **No signing, no transactions, no approvals.** There is no key material anywhere in the
+  package, and a test fails the build if a write/sign RPC method name ever appears.
+
 ## Public RPC reality (read this before filing a bug)
 
 - `eth_getLogs` on public Base endpoints **requires** an `address` filter and caps result

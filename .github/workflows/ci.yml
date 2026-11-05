@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   test:
@@ -16,9 +17,36 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - name: Install test runner
-        run: python -m pip install --upgrade pip pytest
-      - name: Offline unit tests (no network, no PyPI deps)
-        run: python -m pytest tests/test_core.py tests/test_desktop_plugin.py tests/test_plugin_surface.py -q
-      - name: Manifest sanity
-        run: python -c "import yaml,pathlib;d=yaml.safe_load(pathlib.Path('plugin.yaml').read_text());assert d['name']=='basekit';assert d['manifest_version']==2;assert d['python_dependencies']==[];print('manifest ok')"
+
+      # No `pip install` anywhere: the whole point is that basekit needs nothing from
+      # PyPI. If a future edit adds a third-party import, this fails.
+      - name: Prove the core imports with the standard library only
+        run: |
+          python3 -S -c "import sys; sys.path.insert(0, '.'); import basekit_core, schemas, tools; print('stdlib-only import ok:', basekit_core.VERSION)"
+
+      - name: Offline test suites (stdlib unittest — no network, no third-party deps)
+        run: |
+          python3 tests/test_core.py
+          python3 tests/test_plugin_surface.py
+          python3 tests/test_desktop_plugin.py
+
+      - name: Manifest declares no PyPI dependencies
+        run: |
+          ! grep -qE "^\s*-\s*\S+" <(sed -n '/^python_dependencies:/,/^[a-z_]*:/p' plugin.yaml)
+          grep -q "^python_dependencies: \[\]$" plugin.yaml
+
+  live:
+    # Informational: hits real Base over the network. Public endpoints rate limit and
+    # reorg, so this must never block a PR — the offline suites are the gate.
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Live smoke against Base mainnet
+        env:
+          BASEKIT_LIVE: "1"
+        run: python3 tests/test_live.py -v

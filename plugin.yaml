@@ -16,6 +16,7 @@ author: D0XEDDEV
 license: MIT
 homepage: https://github.com/D0xedDevi0/hermes-basekit
 tags: [base, onchain, evm, web3, read-only, dashboard]
+requires_hermes: ">=0.22.7"
 python_dependencies: []
 requires_env: []
 provides_tools:

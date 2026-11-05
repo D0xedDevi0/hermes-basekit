@@ -1,7 +1,12 @@
 # basekit — live Base intelligence for Hermes Agent
 
+[![ci](https://github.com/D0xedDevi0/hermes-basekit/actions/workflows/ci.yml/badge.svg)](https://github.com/D0xedDevi0/hermes-basekit/actions/workflows/ci.yml)
+
 **Hermes Agent Plugin Hackathon entry.** A read-only plugin that gives the agent (and the
 desktop UI) real answers about Base — chain 8453 — instead of plausible-sounding ones.
+
+**Demo — 84 seconds, every number on screen read from Base mainnet during the recording:**
+[basekit on X](https://x.com/D0xedDevi0/status/2118313306314232114)
 
 Six agent tools, a `pre_llm_call` context injection, a `/basekit` slash command, a
 `hermes basekit` CLI command, a bundled skill, a desktop pane, a status-bar chip, a ⌘K
@@ -72,16 +77,21 @@ node, set `rpc_url` in the plugin settings.
 Not "should work" — measured, on the run that produced this README:
 
 ```
-block 53,524,240 · gas 0.006 gwei · ETH $2,423.15 · ETH transfer cost $0.000305
-rpc base-rpc.publicnode.com · 102 ms
-wallet 0x278d858f… $1,852,663.37 across 11 positions in 0.58s
-tx 0xb54c235d509b… success · 3 logs · fee $0.053306 · 2 token transfers decoded
-USDC supply 4,342,955,004 · EIP-1967 proxy detected
+block 53,546,070 · gas 0.006 gwei · ETH $2,413.73 · ETH transfer cost $0.000304
+rpc base-rpc.publicnode.com · 133 ms
+wallet 0x3dbe077e7986… $908,304.27 across 5 positions in 0.33s   (12 tokens scanned)
+wallet 0x6131b5fae19e… $877.58 across 11 positions in 0.35s      (same scan)
+tx 0x3cb57f2ed0bb… block 53,546,057 · success · 29 logs · fee $0.089520 ·
+   7 token transfers + 2 approvals decoded (USDC, METAc, AMZNc)
+USDC supply 4,351,207,618 · EIP-1967 proxy detected
 ```
 
 The offline suite is 106 tests; the live suite is 8 and asserts structure and honesty
 rather than prices (a test that pinned a price would be a lie generator), including a
-guard that fails if any write/sign method name ever appears in the source.
+guard that fails if any write/sign method name ever appears in the source. The offline
+suites gate every push and PR; the live suite runs on `main` and on demand, informational
+because public endpoints rate limit and reorg — the badge at the top of this file is that
+workflow, not a decoration.
 
 ```bash
 python3 -m unittest discover -s tests -p "test_*.py"   # offline, no network

@@ -1,0 +1,163 @@
+{
+ "generated": "2026-11-05T16:48:31Z",
+ "config_path_used": "/opt/data/config.yaml",
+ "q_main": "What is Base gas right now, and what would a plain ETH transfer cost in USD? Answer in one line.",
+ "q_block": "What block number is Base on right now? Answer with just the number.",
+ "note": "arms interleaved ON/OFF; toggle asserted before every run",
+ "main": {
+  "ON": [
+   {
+    "arm": "ON",
+    "i": 1,
+    "seconds": 12.2,
+    "api_calls": 2,
+    "input_tokens": 44426,
+    "cost_usd": 0.000342782,
+    "answer": "Base gas is 0.006 gwei (base fee 0.005 + 0.001 priority) at block 53553988 with ETH $2269.36, so a plain 21,000-gas ETH transfer costs ~$0.000286."
+   },
+   {
+    "arm": "ON",
+    "i": 2,
+    "seconds": 6.0,
+    "api_calls": 1,
+    "input_tokens": 22159,
+    "cost_usd": 0.002191489,
+    "answer": "Base gas is 0.006 gwei (block 53553986) \u2014 a plain ETH transfer costs ~$0.000286 at ETH $2269.36."
+   },
+   {
+    "arm": "ON",
+    "i": 3,
+    "seconds": 14.1,
+    "api_calls": 3,
+    "input_tokens": 67246,
+    "cost_usd": 0.000531331,
+    "answer": "Base gas is 0.006 gwei (base fee 0.005 + 0.001 priority, ETH $2269.36 at block 53554022) \u2014 a plain ETH transfer costs about $0.000286."
+   },
+   {
+    "arm": "ON",
+    "i": 4,
+    "seconds": 12.6,
+    "api_calls": 3,
+    "input_tokens": 67084,
+    "cost_usd": 0.0004854309999999999,
+    "answer": "Base gas is 0.006 gwei (base fee 0.005, priority 0.001) and a plain 21,000-gas ETH transfer costs ~$0.000286 at ETH $2,266.78 \u2014 chain 8453 block 53554038, 2026-11-05T16:50:23Z."
+   },
+   {
+    "arm": "ON",
+    "i": 5,
+    "seconds": 12.4,
+    "api_calls": 3,
+    "input_tokens": 67080,
+    "cost_usd": 0.000497781,
+    "answer": "Base gas is 0.006 gwei (base fee 0.005) at block 53554056, ETH $2266.78 \u2014 a plain ETH transfer (21,000 gas) costs about $0.000286."
+   }
+  ],
+  "OFF": [
+   {
+    "arm": "OFF",
+    "i": 1,
+    "seconds": 14.9,
+    "api_calls": 3,
+    "input_tokens": 67170,
+    "cost_usd": 0.000492957,
+    "answer": "Base gas is ~0.006 gwei (base fee 0.005) \u2014 a plain ETH transfer (21,000 gas) costs about $0.00029 at ETH \u2248 $2,269."
+   },
+   {
+    "arm": "OFF",
+    "i": 2,
+    "seconds": 15.5,
+    "api_calls": 3,
+    "input_tokens": 68067,
+    "cost_usd": 0.0005694420000000001,
+    "answer": "Base gas is 0.006 gwei (base fee 0.005) \u2014 a plain ETH transfer (21,000 gas) costs ~$0.00029 at ETH $2,269.36."
+   },
+   {
+    "arm": "OFF",
+    "i": 3,
+    "seconds": 9.2,
+    "api_calls": 2,
+    "input_tokens": 45768,
+    "cost_usd": 0.0024820379999999998,
+    "answer": "Base gas is 0.006 gwei (base fee 0.005) and a plain 21,000-gas ETH transfer costs ~$0.00029 at ETH $2,269.36."
+   },
+   {
+    "arm": "OFF",
+    "i": 4,
+    "seconds": 13.9,
+    "api_calls": 3,
+    "input_tokens": 67152,
+    "cost_usd": 0.000594726,
+    "answer": "Base gas is 0.006 gwei (base fee 0.005) at block 53554044, so a plain 21,000-gas ETH transfer costs about $0.00029 (L2 gas only \u2014 the L1 data fee adds a small amount on top)."
+   },
+   {
+    "arm": "OFF",
+    "i": 5,
+    "seconds": 12.1,
+    "api_calls": 3,
+    "input_tokens": 67389,
+    "cost_usd": 0.000508014,
+    "answer": "Base gas is 0.006 gwei (base fee 0.005) with ETH at $2,266.78 \u2014 a plain 21,000-gas ETH transfer costs about $0.00029 right now."
+   }
+  ]
+ },
+ "block": {
+  "ON": [
+   {
+    "arm": "ON",
+    "i": 1,
+    "seconds": 8.4,
+    "api_calls": 3,
+    "input_tokens": 67215,
+    "cost_usd": 0.002587611,
+    "answer": "53554070"
+   },
+   {
+    "arm": "ON",
+    "i": 2,
+    "seconds": 7.0,
+    "api_calls": 2,
+    "input_tokens": 44570,
+    "cost_usd": 0.0024376700000000003,
+    "answer": "53554082"
+   },
+   {
+    "arm": "ON",
+    "i": 3,
+    "seconds": 7.2,
+    "api_calls": 2,
+    "input_tokens": 44544,
+    "cost_usd": 0.0023181540000000002,
+    "answer": "53554093"
+   }
+  ],
+  "OFF": [
+   {
+    "arm": "OFF",
+    "i": 1,
+    "seconds": 6.4,
+    "api_calls": 2,
+    "input_tokens": 44382,
+    "cost_usd": 0.00024349499999999999,
+    "answer": "53554076"
+   },
+   {
+    "arm": "OFF",
+    "i": 2,
+    "seconds": 8.1,
+    "api_calls": 2,
+    "input_tokens": 44168,
+    "cost_usd": 0.000246923,
+    "answer": "53554087"
+   },
+   {
+    "arm": "OFF",
+    "i": 3,
+    "seconds": 6.9,
+    "api_calls": 2,
+    "input_tokens": 44184,
+    "cost_usd": 0.00025734,
+    "answer": "53554099"
+   }
+  ]
+ }
+}

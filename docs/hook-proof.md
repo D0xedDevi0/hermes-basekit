@@ -1,19 +1,29 @@
 # Hook proof: does `pre_llm_call` actually change anything?
 
-Measured 2026-11-05T13:46:27Z on one machine, basekit 1.0.0, model `deepseek/deepseek-v4.1-flash`,
-against live Base mainnet (chain 8453). Every number below is copied out of
-`docs/evidence/*.json` by `scripts/build_hook_proof.py` — none is hand-typed, and
-you can re-run the whole thing with the commands at the bottom.
+Measured 2026-11-05T16:48:31Z on one machine, basekit 1.0.0, model `deepseek/deepseek-v4.1-flash`, against live
+Base mainnet (chain 8453). Every number below is read out of `docs/evidence/*.json`
+by `scripts/build_hook_proof.py` — none is hand-typed.
 
-This exists because "it has a hook" is not evidence. A hook is worth shipping if
-it fires when it should, stays quiet when it shouldn't, and measurably changes the
-turn it fires on. So this measures all three, and states plainly what it does not show.
+
+## The short version, including the part that went wrong
+
+| claim | verdict |
+| --- | --- |
+| the `pre_llm_call` gate fires only on Base turns, and its decision costs nothing | **holds** — measured directly, section 1 |
+| the injected line is real, fresh and bounded in size | **holds** — section 2 |
+| unrelated turns pay nothing for having basekit installed | **holds** — +6 tokens against baseline, section 4 |
+| the hook removes a tool round-trip and halves token cost | **does not hold** — corrected A/B: 2.40 vs 2.80 model calls, differences inside noise. Section 3 |
+| my first published numbers were right | **no** — the toggle wrote to a config file the runtime does not read, so both arms ran with the hook on. Section 5 |
+
+I published a measured claim, then went to verify the mechanism behind it and found the
+mechanism was broken. The measurement, the mistake and the correction are all below,
+because an experiment you cannot re-run honestly is worth less than no experiment.
 
 
 ## 1. The gate: a pure function of the user message
 
-The same function Hermes calls before the LLM, called directly. No model involved,
-no network call to decide, no cost.
+The same function Hermes calls before the LLM, called directly. No model involved, no
+network call needed to decide, no cost.
 
 | user message | hook returns |
 | --- | --- |
@@ -24,10 +34,11 @@ no network call to decide, no cost.
 | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` | **INJECT** |
 | `0x3cb57f2ed0bbad21fb8b489d19d5e143f92131ab84b806e9586e59127855b49d` | **INJECT** |
 
-A Base term on its own is enough. An unrelated turn injects nothing. One ambiguous
-word ("block") is not enough on its own — two of them ("token" + "block") are —
-because those words are everywhere in agent conversation and would otherwise fire on
-every other turn. A bare address or transaction hash always counts.
+A Base term on its own is enough. An unrelated turn injects nothing. One ambiguous word
+("block") is not enough on its own — two of them ("token" + "block") are — because
+those words are everywhere in agent conversation and would otherwise fire on every other
+turn. A bare address or transaction hash always counts. This part is deterministic: it is
+a regex over the user message, so it is re-runnable and falsifiable without a model.
 
 
 ## 2. What the model actually receives
@@ -37,99 +48,138 @@ The exact return value, captured — not a reconstruction:
 ```text
 basekit live Base read (chain 8453, read-only, block 53548573): gas 0.006 gwei · ETH $2389.63 · a plain transfer costs ~$0.000301. Use the base_* tools for wallet, receipt, token, transfer and approval facts; every basekit answer states the block it read.
 ```
-Under 200 tokens of prompt, cached for 60 seconds so consecutive Base turns cost one
-RPC read, not one per turn. It fails open: if the RPC is unreachable the hook returns
+Under 200 tokens of prompt, cached 60 seconds so consecutive Base turns cost one RPC read
+rather than one per turn, and it fails open: if the RPC is unreachable the hook returns
 nothing and the turn proceeds exactly as it would without basekit installed.
 
 
-## 3. Same question, hook on vs off
+## 3. The A/B, run wrong and then run right
 
-Question, sent unchanged to `hermes -z` six times (three with the hook enabled, three
-with it disabled), same model, same chain:
+### 3.1 The corrected measurement
 
-> What is Base gas right now, and what would a plain ETH transfer cost in USD? Answer in one line.
+Same question, same model, same chain; arms **interleaved** ON/OFF so drift and ordering
+cancel; the plugin's own `load_settings()` value asserted before every single run:
 
-| run | hook ON api_calls | hook ON input_tokens | hook OFF api_calls | hook OFF input_tokens |
+
+**the gas/cost question** — `What is Base gas right now, and what would a plain ETH transfer cost in USD? Answer in one line.`
+
+| arm | model calls per run | single-call runs | mean calls | mean input tokens |
 | --- | --- | --- | --- | --- |
-| 1 | 1 | 22,159 | 2 | 44,422 |
-| 2 | 1 | 22,100 | 3 | 67,163 |
-| 3 | 2 | 44,443 | 3 | 67,535 |
-| **mean** | **1.33** | **29,567** | **2.67** | **59,706** |
+| hook ON | `[2, 1, 3, 3, 3]` | 1/5 | **2.40** | 53,599 |
+| hook OFF | `[3, 3, 2, 3, 3]` | 0/5 | **2.80** | 63,109 |
 
-With the hook, 2 of 3 runs answered in a single
-model call with zero tool round-trips. Without it, 3 of
-3 runs needed more than one. Mean input tokens 29,567 vs 59,706 — the hook roughly halves
-the token cost of that question, because state already in the prompt is cheaper than a tool
-result re-sent with the whole conversation behind it.
+**a block-number question** — `What block number is Base on right now? Answer with just the number.`
 
-A hook-on answer, verbatim:
+| arm | model calls per run | single-call runs | mean calls | mean input tokens |
+| --- | --- | --- | --- | --- |
+| hook ON | `[3, 2, 2]` | 0/3 | **2.33** | 52,109 |
+| hook OFF | `[2, 2, 2]` | 0/3 | **2.00** | 44,244 |
 
-```text
-Base gas is 0.006 gwei (block 53548498) with ETH at $2,389.63, so a plain 21,000-gas ETH transfer costs about $0.000301.
-```
-Its block number (53548498) came out of the injected line — that run made one model call, so nothing fetched it.
+On the first question the hook-on arm used *fewer* calls (2.40 vs 2.80); on the second it used
+*more* (2.33 vs 2.00). Differences that point in
+opposite directions are not an effect — they are noise, and at n=3–5 with a model that decides
+per turn whether to fetch, that is all this is. **The honest reading: the model calls
+`base_network` whether or not the number is already in its prompt** — on the block-number
+question the injected line carried the answer verbatim, and every run still fetched it.
+
+
+One thing in the corrected data does point the way the first claim did: across all 8 valid runs
+with the hook on, **1** answered in a single model call; across all 8 runs with it off,
+**0** did. That is consistent with injected context occasionally saving a round-trip — and at
+this sample size it is just as consistent with chance. It is a hypothesis worth a proper test (more
+runs, tool-choice traces), not a result, and it is written here as a hypothesis.
+
+### 3.2 The first attempt, and why it was invalid
+
+It produced this, and it was published before anyone checked the mechanism:
+
+| arm | model calls per run | mean | mean input tokens |
+| --- | --- | --- | --- |
+| hook ON | `[1, 1, 2]` | **1.33** | 29,567 |
+| hook OFF | `[2, 3, 3]` | **2.67** | 59,706 |
+
+Both arms of that run had the hook **on**. The toggle wrote
+`plugins.entries.basekit.settings.inject_chain_context: false` into `~/.hermes/config.yaml`,
+but the runtime reads `get_config_path()`, which resolves to `$HERMES_HOME/config.yaml` —
+a different file. Nothing was toggled; the 2× difference was run-to-run variance that
+happened to line up with the arm labels. Section 5 is the postmortem.
 
 
 ## 4. Unrelated turns pay nothing
 
-A non-Base prompt with the hook installed measured **21,966** input tokens
-in 1 model call, against a **21,960**-token baseline measured on the same
-instance for a trivial prompt with no basekit injection (`docs/evidence/baseline-usage.json`).
-That is a +6-token difference, i.e. no injection happened: the gate
-returned `None` and the prompt is unchanged. Installing basekit does not tax turns that have
-nothing to do with Base. Note the lever this gives you — the hook adds under 200 tokens when it
-fires and zero when it does not, while the tool it can save costs tens of thousands.
+A non-Base prompt with the hook installed measured **21,966** input tokens in
+1 model call, against a **21,960**-token baseline for a trivial prompt with no
+basekit injection (`docs/evidence/baseline-usage.json`) — a +6-token
+difference. The gate returned `None` and injected nothing, which is what "costs nothing when
+it does not fire" looks like as a number. This claim survives the correction: it is a direct
+consequence of the gate in section 1, which is deterministic.
 
 
-## 5. What this does not show
+## 5. Postmortem: how a wrong number got published
 
-- **It does not show the model could not have known otherwise.** With the hook off, the
-  agent simply calls `base_network` and gets the same answer. The win is one fewer model
-  call, roughly half the tokens, and chain state present *before* the model chooses
-  anything — not a capability the model lacks.
-- **It does not show a tool call is always avoidable.** One of three hook-on runs still
-  fetched. That is correct behaviour — the hook is a head start, not a replacement.
-- **n is 3 per arm on one machine, one chain state, one model.** These are small-sample
-  numbers and are reported as such. They are enough to show the mechanism works and the
-  gate is real; they are not a benchmark.
-- **No correctness difference was measured.** Both arms produced correct answers, which
-  is the honest result — the interesting difference is cost, not truth.
+1. **The toggle was never verified.** I wrote a setting to a config file and assumed the runtime
+   read it. It did not. A toggle you have not confirmed is not a toggle — and there was a
+   two-second check available the whole time: ask the plugin what it sees.
+2. **The tell was in the numbers I published.** A 2× effect at n=3, from a model that decides
+   per turn, should have been treated as a hypothesis until the mechanism was confirmed.
+3. **The artifact outran the verification.** The doc, the README and a video were built on the
+   first result before the toggle was checked. Building on an unverified premise is the
+   expensive mistake; the fix cost a re-measure, a rewrite and a correction.
+4. **What changed in the method:** assert the plugin's own `load_settings()` value immediately
+   before every run, interleave the arms so drift cannot masquerade as treatment, and report
+   per-run values so a reader can see the spread instead of trusting a mean.
+
+The wrong capture is kept in `docs/evidence/hook-ab.json` on purpose. Deleting it would hide
+the only evidence that the correction happened.
 
 
-## 6. Reproduce it
+## 6. What the hook is actually worth
+
+Stated at the strength the measurements support:
+
+- **The gate is real.** It fires on Base turns and stays silent otherwise, deterministically,
+  with no model call and no network access to decide.
+- **The cost is bounded and conditional.** Under 200 tokens when it fires; a measured +6 tokens
+  when it does not; never a failed turn, because it fails open.
+- **It puts live chain state in front of the model before it decides anything** — not a tool it
+  must choose to call, not a skill it must remember to load.
+- **It does not make the model cheaper on its own.** On this model and these questions it did
+  not remove tool round-trips. Anyone claiming hook-equivalent savings should show a verified
+  toggle and per-run numbers, which is exactly what section 3 does for this one.
+
+So the case for basekit being more than a prompt or a skill does not rest on a token saving.
+It rests on the surface: six read-only tools, this hook, a `/basekit` command, a `hermes basekit`
+CLI command, a desktop pane, a status chip and a dashboard backend — none of which a prompt
+can provide.
+
+
+## 7. Reproduce it
 
 ```bash
 # the gate: no model needed, and the decision itself needs no network
 cd ~/.hermes/plugins/basekit    # wherever basekit is installed
 python3 -c "import __init__ as b; print(b._pre_llm_call(user_message='what is base gas right now?'))"
 
-# the A/B: hook on (3 runs)
+# the A/B - toggle with Hermes' own command, never by hand-editing config.yaml
+hermes config set plugins.entries.basekit.settings.inject_chain_context false
+python3 -c "import basekit_core as c; print(c.load_settings()['inject_chain_context'])"   # assert it: False
 hermes -z "What is Base gas right now, and what would a plain ETH transfer cost in USD? Answer in one line." \
-  --usage-file /tmp/on.json
-
-# the A/B: hook off — add to <HERMES_HOME>/config.yaml, run again, then remove it
-cat >> ~/.hermes/config.yaml <<'YAML'
-plugins:
-  entries:
-    basekit:
-      settings:
-        inject_chain_context: false
-YAML
+  --usage-file /tmp/off.json
+hermes config unset plugins.entries.basekit.settings.inject_chain_context
 ```
-`scripts/build_hook_proof.py` regenerates this file and the tables from
-`docs/evidence/hook-ab.json` + `docs/evidence/hook-gate.json`.
+`scripts/build_hook_proof.py` regenerates this page from the captures in `docs/evidence/`.
+`--usage-file` reports `api_calls`, which is what makes a tool round-trip countable.
 
 
-## 7. Raw evidence
+## 8. Raw evidence
 
-| file | sha256 |
-| --- | --- |
-| `docs/evidence/hook-ab.json` | `65c6ec144e162082d36f75ca5c85c29e11d56996c7b0a40fa5efdc523702b52e` |
-| `docs/evidence/hook-gate.json` | `749fa550608769e63cc4750a4618b0b33ffa1ffdd9e8c4004f7e9169b441adab` |
-| `docs/evidence/baseline-usage.json` | `65f4a785f2262909650e4cfd2c9ab26996a52fa73ebe23d42b8b8080d9290d1b` |
+| file | what it is | sha256 |
+| --- | --- | --- |
+| `docs/evidence/hook-ab2.json` | corrected A/B, toggle asserted per run | `5f35a68c48bd232009199da63d64ea2ced63aebf2a13b334ba5849f2b69a5e1c` |
+| `docs/evidence/hook-ab.json` | the invalid first A/B, kept as the record | `65c6ec144e162082d36f75ca5c85c29e11d56996c7b0a40fa5efdc523702b52e` |
+| `docs/evidence/hook-gate.json` | direct hook calls | `749fa550608769e63cc4750a4618b0b33ffa1ffdd9e8c4004f7e9169b441adab` |
+| `docs/evidence/baseline-usage.json` | no-injection baseline prompt | `65f4a785f2262909650e4cfd2c9ab26996a52fa73ebe23d42b8b8080d9290d1b` |
 
-An 82-second walkthrough of these results ships with the repo: `docs/hook-proof.mp4`
-(1600x900, 82.0s, h264) and is posted at https://x.com/D0xedDevi0/status/2118380730652721171 .
-It renders these captures frame by frame — the numbers in it are the numbers above, so it adds
-narration rather than evidence.
+A short walkthrough accompanies the hackathon submission; it renders these captures rather
+than adding evidence of its own.
 

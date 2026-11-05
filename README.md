@@ -95,24 +95,30 @@ suites gate every push and PR; the live suite runs on `main` and on demand, info
 because public endpoints rate limit and reorg — the badge at the top of this file is that
 workflow, not a decoration.
 
-## The hook, measured — not asserted
+## The hook, measured — including where the first measurement was wrong
 
 `pre_llm_call` is the part of basekit a prompt or a skill could not replace: Hermes calls it
-before the model runs, and it decides on its own whether this turn is about Base at all.
-Saying so proves nothing, so it is measured in **[docs/hook-proof.md](docs/hook-proof.md)**:
+before the model runs, and it decides on its own whether this turn is about Base at all. Saying
+so proves nothing, so it is measured in **[docs/hook-proof.md](docs/hook-proof.md)**:
 
 - the keyword gate, called directly — a Base term fires it, an unrelated turn gets `None`,
   one ambiguous word ("block") is not enough while two ("token" + "block") are, and a bare
-  address or tx hash always fires it;
-- the exact string the model receives, captured rather than reconstructed;
-- the same question sent to `hermes -z` three times with the hook on and three with it off —
-  **1.33 vs 2.67 model calls and 29.6k vs 59.7k input tokens**, the hook answering in a
-  single call with zero tool round-trips in 2 of 3 runs;
+  address or tx hash always fires it. Deterministic, no model, no cost to decide;
+- the exact string the model receives, captured rather than reconstructed, under 200 tokens,
+  cached 60s, failing open;
 - an unrelated prompt costing **+6 tokens** against baseline, because the gate returned `None`
   and injected nothing;
-- and a plain statement of what the experiment does *not* show — with the hook off the agent
-  simply calls the tool and gets the same answer, so the win is calls and tokens, not a
-  capability the model lacks.
+- the same question through `hermes -z` with the hook on and off — and here the first version of
+  this README claimed **1.33 vs 2.67 model calls**, which turned out to be wrong: the toggle wrote
+  to a config file the runtime does not read, so both arms ran with the hook on. Re-measured with
+  the plugin's own `load_settings()` asserted before every run and the arms interleaved, the
+  difference is **2.40 vs 2.80** model calls on one question and **2.33 vs 2.00** on another —
+  pointing in opposite directions, inside noise. **The hook does not reliably remove a tool
+  round-trip.** The gate is real; the token saving is not demonstrated;
+- what that leaves as a hypothesis rather than a result: across eight valid runs per arm, one
+  hook-on run answered in a single call and no hook-off run did. Worth a proper test, not a claim;
+- and a postmortem of how the wrong number got published, with the invalid capture kept in
+  `docs/evidence/hook-ab.json` rather than deleted.
 
 The raw captures are in [`docs/evidence/`](docs/evidence) with their sha256s, and
 `scripts/build_hook_proof.py` regenerates the whole page from them — no number in that

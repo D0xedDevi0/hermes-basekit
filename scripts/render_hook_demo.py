@@ -119,8 +119,8 @@ def scene_title():
         ("", WHITE),
         ("1  the keyword gate, called directly   (no model involved)", CYAN),
         ("2  the exact string the hook injects", CYAN),
-        ("3  hook ON vs hook OFF, 3 runs each, live Base mainnet", CYAN),
-        ("4  what this proves - and what it does not", CYAN),
+        ("3  hook ON vs hook OFF - n=5 and n=3, toggle verified before each run", CYAN),
+        ("4  what held up, and what the first measurement got wrong", CYAN),
         ("", WHITE),
         ("Every number on screen was measured during this recording.", AMBER),
         ("No keys, no signing, no transactions. Read-only.", GREEN),
@@ -188,71 +188,80 @@ def scene_line():
     return img
 
 
+def _mean(rows, k):
+    return sum(r[k] for r in rows) / len(rows)
+
+
 def scene_ab():
-    ab = json.load(open("/opt/data/cache/scratch/hook-ab.json"))
-    ON, OFF = ab["ON"], ab["OFF"]
-    img, d = base("3 · same question, hook on vs off",
-                  "1.33 vs 2.67 model calls · 29.6k vs 59.7k input tokens (mean of 3 live runs)",
-                  "A / B", GREEN)
+    ab = json.load(open("/opt/data/cache/scratch/hook-ab2.json"))
+    m_on, m_off = ab["main"]["ON"], ab["main"]["OFF"]
+    b_on, b_off = ab["block"]["ON"], ab["block"]["OFF"]
+    f = lambda rows: ", ".join(str(r["api_calls"]) for r in rows)
+    img, d = base("3 · the A/B, re-measured with the toggle verified",
+                  f"{_mean(m_on, 'api_calls'):.2f} vs {_mean(m_off, 'api_calls'):.2f} model calls on n=5 · "
+                  f"{_mean(b_on, 'api_calls'):.2f} vs {_mean(b_off, 'api_calls'):.2f} on n=3",
+                  "A / B — CORRECTED", AMBER)
     pw = (W - 40 - 60) // 2
-    left = (30, 150, 30 + pw, H - 40)
-    right = (30 + pw + 20, 150, 30 + pw + 20 + pw, H - 40)
+    left = (30, 150, 30 + pw, H - 190)
+    right = (30 + pw + 20, 150, 30 + pw + 20 + pw, H - 190)
     on_lines = [
-        ('$ hermes -z "what is base gas right', AMBER),
-        ('  now, and what would a plain ETH', AMBER),
-        ('  transfer cost in USD? one line"', AMBER),
+        ('$ hermes -z "...base gas?"', AMBER),
+        ("  arms interleaved, n = 5", AMBER),
         ("", WHITE),
-        ("Base gas is 0.006 gwei (block", WHITE),
-        ("53548498) with ETH at $2,389.63,", WHITE),
-        ("so a plain 21,000-gas ETH transfer", WHITE),
-        ("costs about $0.000301.", WHITE),
+        (f"model calls   {f(m_on)}", GREEN),
+        (f"mean          {_mean(m_on, 'api_calls'):.2f}", GREEN),
+        (f"single-call   {sum(1 for r in m_on if r['api_calls'] == 1)} of {len(m_on)}", GREEN),
         ("", WHITE),
-        ("api_calls     1  (runs: 1, 1, 2)", GREEN),
-        ("input_tokens  22,159", GREEN),
-        ("seconds       13.7", GREEN),
-        ("", WHITE),
-        ("The block number came from the", CYAN),
-        ("injected line - never fetched.", CYAN),
+        ("block-number question", CYAN),
+        (f"model calls   {f(b_on)}", GREEN),
+        (f"mean          {_mean(b_on, 'api_calls'):.2f}", GREEN),
     ]
     off_lines = [
-        ("$ hermes -z  \"...same question...\"", AMBER),
+        ('$ hermes -z  "...same question..."', AMBER),
         ("  inject_chain_context: false", AMBER),
+        ("  asserted before EVERY run", AMBER),
         ("", WHITE),
-        ("Base gas is 0.006 gwei (base fee", WHITE),
-        ("0.005) at block 53548546, ETH", WHITE),
-        ("$2389.63 - a plain 21,000-gas ETH", WHITE),
-        ("transfer costs ~$0.0003.", WHITE),
+        (f"model calls   {f(m_off)}", RED),
+        (f"mean          {_mean(m_off, 'api_calls'):.2f}", RED),
+        (f"single-call   {sum(1 for r in m_off if r['api_calls'] == 1)} of {len(m_off)}", RED),
         ("", WHITE),
-        ("api_calls     2.67 (runs: 2, 3, 3)", RED),
-        ("input_tokens  44,422 / 67,163 /", RED),
-        ("              67,535", RED),
-        ("seconds       11.2 / 15.9 / 11.6", RED),
-        ("", WHITE),
-        ("Correct answer too - it just had", CYAN),
-        ("to go and fetch it, every run.", CYAN),
+        ("block-number question", CYAN),
+        (f"model calls   {f(b_off)}", RED),
+        (f"mean          {_mean(b_off, 'api_calls'):.2f}", RED),
     ]
-    panel(d, left, "HOOK ON", on_lines, GREEN, 19, 31)
-    panel(d, right, "HOOK OFF", off_lines, RED, 19, 31)
+    panel(d, left, f"HOOK ON · mean {_mean(m_on, 'api_calls'):.2f}", on_lines, GREEN, 19, 31)
+    panel(d, right, f"HOOK OFF · mean {_mean(m_off, 'api_calls'):.2f}", off_lines, RED, 19, 31)
+    verdict = [
+        ("The two questions disagree (ON lower on one, higher on the other) - noise, not an effect.", WHITE),
+        ("The model calls base_network whether or not the number is already in its prompt.", WHITE),
+    ]
+    panel(d, (30, H - 170, W - 30, H - 40), "the honest read", verdict, AMBER, 21, 34)
     return img
 
 
 def scene_honest():
-    img, d = base("4 · the honest read", "measured, single machine, single chain state - n is small and I say so", "NOT OVERCLAIMED", AMBER)
+    ab1 = json.load(open("/opt/data/cache/scratch/hook-ab.json"))
+    nb = ab1["NONBASE"][0]
+    base_in = json.load(open("/opt/data/cache/scratch/oneshot-usage.json"))["input_tokens"]
+    pub_on, pub_off = _mean(ab1["ON"], "api_calls"), _mean(ab1["OFF"], "api_calls")
+    img, d = base("4 · what held up, and what did not",
+                  "one machine, one model, one chain state - n is small and the video says so",
+                  "CORRECTED IN PUBLIC", AMBER)
     lines = [
-        ("WHAT THIS PROVES", GREEN),
-        ("  the hook fires on Base turns and injects live chain state before the model decides", WHITE),
-        ("  a live-Base question answered in ONE model call, zero tool round-trips, in 2 of 3 runs", WHITE),
-        ("  it is a pure function of the message - no model call, no cost, to decide", WHITE),
+        ("WHAT HELD UP", GREEN),
+        ("  the gate is deterministic: Base turns only, and deciding costs no model call", WHITE),
+        ("  the injected line is real, under 200 tokens, and fails open if the RPC is down", WHITE),
+        (f"  unrelated turns pay nothing: {nb['input_tokens']:,} input tokens vs a {base_in:,} baseline", WHITE),
         ("", WHITE),
-        ("WHAT THIS DOES NOT PROVE", RED),
-        ("  it does not prove the model could not have known: with the hook off it simply calls", WHITE),
-        ("  base_network and gets the same answer. The win is calls, tokens, and state already", WHITE),
-        ("  in context - not a capability the model lacks.", WHITE),
-        ("  it does not prove a tool call is always avoidable: 1 of 3 hook-on runs still fetched.", WHITE),
+        ("WHAT DID NOT", RED),
+        (f"  the first A/B claimed {pub_on:.2f} vs {pub_off:.2f} model calls on n=3, and was published.", WHITE),
+        ("  Both arms ran with the hook ON - the toggle wrote to a config file the", WHITE),
+        ("  runtime never reads. A toggle you have not confirmed is not a toggle.", WHITE),
+        ("  Re-measured properly: no reliable saving. The model fetches either way.", WHITE),
         ("", WHITE),
-        ("THE GATE COSTS UNRELATED TURNS NOTHING", CYAN),
-        ("  a haiku run with the hook installed measured 21,966 input tokens against a 22,052", WHITE),
-        ("  baseline - inside noise, because the hook returned None and injected nothing.", WHITE),
+        ("WHAT CHANGED", CYAN),
+        ("  assert the plugin's own setting before every run, interleave the arms, and", WHITE),
+        ("  publish per-run values - and keep the invalid capture in the repo.", WHITE),
     ]
     panel(d, (40, 150, W - 40, H - 40), "what to believe", lines, AMBER, 21, 38)
     return img

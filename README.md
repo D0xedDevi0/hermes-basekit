@@ -17,6 +17,31 @@ command and a keybind. Built on the standard library alone: **zero PyPI dependen
 > **basekit cannot sign, send, or hold anything.** There is no private key, no signer, no
 > transaction path — that's a design decision, not a to-do. It reads; you decide.
 
+## See it
+
+![basekit — read-only live Base intelligence](docs/banner.png)
+
+**The CLI, reading the live chain** — the RPC endpoint and latency come from the command, so the
+numbers say where they came from:
+
+![hermes basekit status-full](docs/screenshots/status.png)
+
+**A portfolio read.** The address is the WETH contract — a public wallet, not anyone's personal one:
+
+![hermes basekit wallet](docs/screenshots/wallet.png)
+
+**Token facts, with real proxy detection** and the bytecode hints labelled as hints, not verdicts:
+
+![hermes basekit token](docs/screenshots/token.png)
+
+**The hook's decision table** — the same function Hermes calls before the model, called directly:
+
+![the pre_llm_call gate](docs/screenshots/gate.png)
+
+Every image is rendered from captured command output by `scripts/render_screenshots.py`
+(commands and dates: [`docs/screenshots/CAPTURE.md`](docs/screenshots/CAPTURE.md)). Same rule as
+the [hook measurement](docs/hook-proof.md): no number in a picture that wasn't read off the chain.
+
 ## What it does
 
 | Tool | Answers |

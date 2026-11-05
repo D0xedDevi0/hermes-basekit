@@ -1,0 +1,109 @@
+{
+ "generated": "2026-11-05T13:46:27Z",
+ "question": "What is Base gas right now, and what would a plain ETH transfer cost in USD? Answer in one line.",
+ "gate": {
+  "base": {
+   "msg": "What is Base gas right now, and what would a plain ETH transfer cost in USD? Answer in one line.",
+   "injected": true,
+   "line": "basekit live Base read (chain 8453, read-only, block 53548520): gas 0.006 gwei \u00b7 ETH $2389.63 \u00b7 a plain transfer costs ~$0.000301. Use the base_* tools for wallet, receipt, token, transfer and approval facts; every basekit answer states the block it read."
+  },
+  "off-topic": {
+   "msg": "Write a haiku about a dog. Nothing else.",
+   "injected": false,
+   "line": null
+  },
+  "secondary-only": {
+   "msg": "token budget and block sizes in my prompt",
+   "injected": true,
+   "line": "basekit live Base read (chain 8453, read-only, block 53548521): gas 0.006 gwei \u00b7 ETH $2389.63 \u00b7 a plain transfer costs ~$0.000301. Use the base_* tools for wallet, receipt, token, transfer and approval facts; every basekit answer states the block it read."
+  },
+  "bare address": {
+   "msg": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+   "injected": true,
+   "line": "basekit live Base read (chain 8453, read-only, block 53548522): gas 0.006 gwei \u00b7 ETH $2389.63 \u00b7 a plain transfer costs ~$0.000301. Use the base_* tools for wallet, receipt, token, transfer and approval facts; every basekit answer states the block it read."
+  }
+ },
+ "ON": [
+  {
+   "tag": "on",
+   "q": "What is Base gas right now, ",
+   "seconds": 10.3,
+   "api_calls": 1,
+   "input_tokens": 22159,
+   "total_tokens": 22546,
+   "cost_usd": 0.002390713,
+   "exit": "text_response(finish_reason=stop)",
+   "answer": "Base gas is 0.006 gwei (block 53548498) with ETH at $2,389.63, so a plain 21,000-gas ETH transfer costs about $0.000301."
+  },
+  {
+   "tag": "on",
+   "q": "What is Base gas right now, ",
+   "seconds": 18.4,
+   "api_calls": 1,
+   "input_tokens": 22100,
+   "total_tokens": 23490,
+   "cost_usd": 0.00305567,
+   "exit": "text_response(finish_reason=stop)",
+   "answer": "Base gas is 0.006 gwei at block 53548529 \u2014 a plain ETH transfer costs about $0.000301 at ETH $2389.63."
+  },
+  {
+   "tag": "on",
+   "q": "What is Base gas right now, ",
+   "seconds": 12.4,
+   "api_calls": 2,
+   "input_tokens": 44443,
+   "total_tokens": 44663,
+   "cost_usd": 0.000332554,
+   "exit": "text_response(finish_reason=stop)",
+   "answer": "Base gas 0.006 gwei (base fee 0.005) at block 53548540 \u00b7 ETH $2389.63 \u00b7 a plain 21000-gas ETH transfer costs ~$0.000301 (~$0.0003)."
+  }
+ ],
+ "OFF": [
+  {
+   "tag": "off",
+   "q": "What is Base gas right now, ",
+   "seconds": 11.2,
+   "api_calls": 2,
+   "input_tokens": 44422,
+   "total_tokens": 44623,
+   "cost_usd": 0.000307525,
+   "exit": "text_response(finish_reason=stop)",
+   "answer": "Base gas is 0.006 gwei (base fee 0.005, priority 0.001) at block 53548546, ETH $2389.63 \u2014 a plain 21,000-gas ETH transfer costs about $0.000301."
+  },
+  {
+   "tag": "off",
+   "q": "What is Base gas right now, ",
+   "seconds": 15.9,
+   "api_calls": 3,
+   "input_tokens": 67163,
+   "total_tokens": 67503,
+   "cost_usd": 0.000491522,
+   "exit": "text_response(finish_reason=stop)",
+   "answer": "Base gas is 0.006 gwei (base fee 0.005) \u2014 a plain ETH transfer (21,000 gas) costs ~$0.0003 at ETH $2389.63, per live read at block 53548554."
+  },
+  {
+   "tag": "off",
+   "q": "What is Base gas right now, ",
+   "seconds": 11.6,
+   "api_calls": 3,
+   "input_tokens": 67535,
+   "total_tokens": 68050,
+   "cost_usd": 0.000594617,
+   "exit": "text_response(finish_reason=stop)",
+   "answer": "Base gas is 0.006 gwei (block 53548561, 2026-11-05 13:47 UTC) and a plain ETH transfer costs ~$0.0003."
+  }
+ ],
+ "NONBASE": [
+  {
+   "tag": "nonbase",
+   "q": "Write a haiku about a dog. N",
+   "seconds": 7.4,
+   "api_calls": 1,
+   "input_tokens": 21966,
+   "total_tokens": 21989,
+   "cost_usd": 0.000107619,
+   "exit": "text_response(finish_reason=stop)",
+   "answer": "Loyal tail wagging,\npaws drum softly on the floor,\nsun warms his closed eyes."
+  }
+ ]
+}

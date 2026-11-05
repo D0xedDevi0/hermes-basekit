@@ -1,0 +1,32 @@
+{
+ "a Base turn": {
+  "msg": "what is base gas right now?",
+  "injected": true,
+  "line": "basekit live Base read (chain 8453, read-only, block 53548573): gas 0.006 gwei \u00b7 ETH $2389.63 \u00b7 a plain transfer costs ~$0.000301. Use the base_* tools for wallet, receipt, token, transfer and approval facts; every basekit answer states the block it read."
+ },
+ "unrelated work": {
+  "msg": "write a haiku about a dog",
+  "injected": false,
+  "line": null
+ },
+ "one ambiguous word": {
+  "msg": "why are my block sizes so large in the prompt",
+  "injected": false,
+  "line": null
+ },
+ "two ambiguous words": {
+  "msg": "token budget and block sizes in my prompt",
+  "injected": true,
+  "line": "basekit live Base read (chain 8453, read-only, block 53548573): gas 0.006 gwei \u00b7 ETH $2389.63 \u00b7 a plain transfer costs ~$0.000301. Use the base_* tools for wallet, receipt, token, transfer and approval facts; every basekit answer states the block it read."
+ },
+ "a bare Base address": {
+  "msg": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  "injected": true,
+  "line": "basekit live Base read (chain 8453, read-only, block 53548573): gas 0.006 gwei \u00b7 ETH $2389.63 \u00b7 a plain transfer costs ~$0.000301. Use the base_* tools for wallet, receipt, token, transfer and approval facts; every basekit answer states the block it read."
+ },
+ "a tx hash": {
+  "msg": "0x3cb57f2ed0bbad21fb8b489d19d5e143f92131ab84b806e9586e59127855b49d",
+  "injected": true,
+  "line": "basekit live Base read (chain 8453, read-only, block 53548573): gas 0.006 gwei \u00b7 ETH $2389.63 \u00b7 a plain transfer costs ~$0.000301. Use the base_* tools for wallet, receipt, token, transfer and approval facts; every basekit answer states the block it read."
+ }
+}

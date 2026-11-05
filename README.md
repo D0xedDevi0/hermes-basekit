@@ -93,6 +93,29 @@ suites gate every push and PR; the live suite runs on `main` and on demand, info
 because public endpoints rate limit and reorg — the badge at the top of this file is that
 workflow, not a decoration.
 
+## The hook, measured — not asserted
+
+`pre_llm_call` is the part of basekit a prompt or a skill could not replace: Hermes calls it
+before the model runs, and it decides on its own whether this turn is about Base at all.
+Saying so proves nothing, so it is measured in **[docs/hook-proof.md](docs/hook-proof.md)**:
+
+- the keyword gate, called directly — a Base term fires it, an unrelated turn gets `None`,
+  one ambiguous word ("block") is not enough while two ("token" + "block") are, and a bare
+  address or tx hash always fires it;
+- the exact string the model receives, captured rather than reconstructed;
+- the same question sent to `hermes -z` three times with the hook on and three with it off —
+  **1.33 vs 2.67 model calls and 29.6k vs 59.7k input tokens**, the hook answering in a
+  single call with zero tool round-trips in 2 of 3 runs;
+- an unrelated prompt costing **+6 tokens** against baseline, because the gate returned `None`
+  and injected nothing;
+- and a plain statement of what the experiment does *not* show — with the hook off the agent
+  simply calls the tool and gets the same answer, so the win is calls and tokens, not a
+  capability the model lacks.
+
+The raw captures are in [`docs/evidence/`](docs/evidence) with their sha256s, and
+`scripts/build_hook_proof.py` regenerates the whole page from them — no number in that
+document is hand-typed.
+
 ```bash
 python3 -m unittest discover -s tests -p "test_*.py"   # offline, no network
 BASEKIT_LIVE=1 python3 tests/test_live.py              # against real Base

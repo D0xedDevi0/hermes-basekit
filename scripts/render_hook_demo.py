@@ -10,6 +10,7 @@ Layout checks run before encode: per-line width vs panel inner width,
 and a tofu check for every non-ASCII glyph the frames use.
 """
 import json
+import math
 import subprocess
 import sys
 from pathlib import Path
@@ -119,7 +120,7 @@ def scene_title():
         ("", WHITE),
         ("1  the keyword gate, called directly   (no model involved)", CYAN),
         ("2  the exact string the hook injects", CYAN),
-        ("3  hook ON vs hook OFF - n=5 and n=3, toggle verified before each run", CYAN),
+        ("3  hook ON vs hook OFF - pooled n=24 vs 23, toggle verified before each run", CYAN),
         ("4  what held up, and what the first measurement got wrong", CYAN),
         ("", WHITE),
         ("Every number on screen was measured during this recording.", AMBER),
@@ -188,52 +189,108 @@ def scene_line():
     return img
 
 
+def _betacf(a, b, x):
+    MAXIT, EPS, FPMIN = 300, 3e-14, 1e-300
+    qab, qap, qam = a + b, a + 1.0, a - 1.0
+    c, d = 1.0, 1.0 - qab * x / qap
+    d = 1.0 / (d if abs(d) > FPMIN else FPMIN)
+    h = d
+    for m in range(1, MAXIT + 1):
+        m2 = 2 * m
+        aa = m * (b - m) * x / ((qam + m2) * (a + m2))
+        d = 1.0 + aa * d
+        d = 1.0 / (d if abs(d) > FPMIN else FPMIN)
+        c = 1.0 + aa / c
+        c = c if abs(c) > FPMIN else FPMIN
+        h *= d * c
+        aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2))
+        d = 1.0 + aa * d
+        d = 1.0 / (d if abs(d) > FPMIN else FPMIN)
+        c = 1.0 + aa / c
+        c = c if abs(c) > FPMIN else FPMIN
+        de = d * c
+        h *= de
+        if abs(de - 1.0) < EPS:
+            break
+    return h
+
+
+def _betai(a, b, x):
+    if x <= 0:
+        return 0.0
+    if x >= 1:
+        return 1.0
+    lbeta = math.lgamma(a + b) - math.lgamma(a) - math.lgamma(b)
+    bt = math.exp(lbeta + a * math.log(x) + b * math.log(1 - x))
+    if x < (a + 1) / (a + b + 2):
+        return bt * _betacf(a, b, x) / a
+    return 1.0 - bt * _betacf(b, a, 1 - x) / b
+
+
+def _t_p(t, df):
+    return _betai(df / 2.0, 0.5, df / (df + t * t))
+
+
+def _t_crit_975(df):
+    lo, hi = 0.0, 100.0
+    for _ in range(200):
+        mid = (lo + hi) / 2.0
+        if _t_p(mid, df) > 0.05:
+            lo = mid
+        else:
+            hi = mid
+    return (lo + hi) / 2.0
+
+
 def _mean(rows, k):
     return sum(r[k] for r in rows) / len(rows)
 
 
 def scene_ab():
+    import statistics as st
     ab = json.load(open("/opt/data/cache/scratch/hook-ab2.json"))
-    m_on, m_off = ab["main"]["ON"], ab["main"]["OFF"]
-    b_on, b_off = ab["block"]["ON"], ab["block"]["OFF"]
-    f = lambda rows: ", ".join(str(r["api_calls"]) for r in rows)
-    img, d = base("3 · the A/B, re-measured with the toggle verified",
-                  f"{_mean(m_on, 'api_calls'):.2f} vs {_mean(m_off, 'api_calls'):.2f} model calls on n=5 · "
-                  f"{_mean(b_on, 'api_calls'):.2f} vs {_mean(b_off, 'api_calls'):.2f} on n=3",
+    power = [json.loads(l) for l in open("/opt/data/cache/scratch/hook-power.jsonl") if l.strip()]
+    good = [r for r in power if r["api_calls"] is not None]
+    on = [r["api_calls"] for r in good if r["arm"] == "ON"] + [r["api_calls"] for r in ab["main"]["ON"]]
+    off = [r["api_calls"] for r in good if r["arm"] == "OFF"] + [r["api_calls"] for r in ab["main"]["OFF"]]
+    ma, mb = st.mean(on), st.mean(off)
+    va, vb = st.variance(on) / len(on), st.variance(off) / len(off)
+    se = (va + vb) ** 0.5
+    diff = ma - mb
+    t = diff / se
+    df = (va + vb) ** 2 / (va ** 2 / (len(on) - 1) + vb ** 2 / (len(off) - 1))
+    p2 = _t_p(t, df)                                # exact two-sided t, same as the doc
+    ci_lo = diff - _t_crit_975(df) * se
+    img, d = base("3 · the A/B, powered and pooled",
+                  f"n={len(on)} vs {len(off)} · Welch p={p2:.2f} · 95% CI [{ci_lo:+.2f}, {diff + _t_crit_975(df) * se:+.2f}] calls",
                   "A / B — CORRECTED", AMBER)
     pw = (W - 40 - 60) // 2
     left = (30, 150, 30 + pw, H - 190)
     right = (30 + pw + 20, 150, 30 + pw + 20 + pw, H - 190)
     on_lines = [
         ('$ hermes -z "...base gas?"', AMBER),
-        ("  arms interleaved, n = 5", AMBER),
+        ("  arms interleaved, pooled", AMBER),
         ("", WHITE),
-        (f"model calls   {f(m_on)}", GREEN),
-        (f"mean          {_mean(m_on, 'api_calls'):.2f}", GREEN),
-        (f"single-call   {sum(1 for r in m_on if r['api_calls'] == 1)} of {len(m_on)}", GREEN),
-        ("", WHITE),
-        ("block-number question", CYAN),
-        (f"model calls   {f(b_on)}", GREEN),
-        (f"mean          {_mean(b_on, 'api_calls'):.2f}", GREEN),
+        (f"n             {len(on)}", GREEN),
+        (f"model calls   mean {ma:.2f}  sd {st.pstdev(on):.2f}", GREEN),
+        (f"single-call   {sum(1 for x in on if x == 1)} of {len(on)}", GREEN),
+        (f"mean tokens   {int(st.mean([r['input_tokens'] for r in good if r['arm']=='ON'] + [r['input_tokens'] for r in ab['main']['ON']])):,}", GREEN),
     ]
     off_lines = [
         ('$ hermes -z  "...same question..."', AMBER),
         ("  inject_chain_context: false", AMBER),
         ("  asserted before EVERY run", AMBER),
         ("", WHITE),
-        (f"model calls   {f(m_off)}", RED),
-        (f"mean          {_mean(m_off, 'api_calls'):.2f}", RED),
-        (f"single-call   {sum(1 for r in m_off if r['api_calls'] == 1)} of {len(m_off)}", RED),
-        ("", WHITE),
-        ("block-number question", CYAN),
-        (f"model calls   {f(b_off)}", RED),
-        (f"mean          {_mean(b_off, 'api_calls'):.2f}", RED),
+        (f"n             {len(off)}", RED),
+        (f"model calls   mean {mb:.2f}  sd {st.pstdev(off):.2f}", RED),
+        (f"single-call   {sum(1 for x in off if x == 1)} of {len(off)}", RED),
+        (f"mean tokens   {int(st.mean([r['input_tokens'] for r in good if r['arm']=='OFF'] + [r['input_tokens'] for r in ab['main']['OFF']])):,}", RED),
     ]
-    panel(d, left, f"HOOK ON · mean {_mean(m_on, 'api_calls'):.2f}", on_lines, GREEN, 19, 31)
-    panel(d, right, f"HOOK OFF · mean {_mean(m_off, 'api_calls'):.2f}", off_lines, RED, 19, 31)
+    panel(d, left, f"HOOK ON · mean {ma:.2f}", on_lines, GREEN, 19, 31)
+    panel(d, right, f"HOOK OFF · mean {mb:.2f}", off_lines, RED, 19, 31)
     verdict = [
-        ("The two questions disagree (ON lower on one, higher on the other) - noise, not an effect.", WHITE),
-        ("The model calls base_network whether or not the number is already in its prompt.", WHITE),
+        (f"Difference {diff:+.2f} calls, SE {se:.2f}, Welch p = {p2:.2f} - a direction, not an effect.", WHITE),
+        (f"The interval rules out any saving beyond ~{abs(ci_lo):.1f} of a call: the model fetches either way.", WHITE),
     ]
     panel(d, (30, H - 170, W - 30, H - 40), "the honest read", verdict, AMBER, 21, 34)
     return img
@@ -257,7 +314,7 @@ def scene_honest():
         (f"  the first A/B claimed {pub_on:.2f} vs {pub_off:.2f} model calls on n=3, and was published.", WHITE),
         ("  Both arms ran with the hook ON - the toggle wrote to a config file the", WHITE),
         ("  runtime never reads. A toggle you have not confirmed is not a toggle.", WHITE),
-        ("  Re-measured properly: no reliable saving. The model fetches either way.", WHITE),
+        ("  Re-measured at n=24 vs 23: p=0.17. No reliable saving - the model fetches either way.", WHITE),
         ("", WHITE),
         ("WHAT CHANGED", CYAN),
         ("  assert the plugin's own setting before every run, interleave the arms, and", WHITE),

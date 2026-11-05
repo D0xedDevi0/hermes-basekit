@@ -12,7 +12,7 @@ by `scripts/build_hook_proof.py` — none is hand-typed.
 | the `pre_llm_call` gate fires only on Base turns, and its decision costs nothing | **holds** — measured directly, section 1 |
 | the injected line is real, fresh and bounded in size | **holds** — section 2 |
 | unrelated turns pay nothing for having basekit installed | **holds** — +6 tokens against baseline, section 4 |
-| the hook removes a tool round-trip and halves token cost | **does not hold** — corrected A/B: 2.40 vs 2.80 model calls, differences inside noise. Section 3 |
+| the hook removes a tool round-trip and halves token cost | **does not hold** — powered A/B (pooled n=24 vs 23, same question): 2.42 vs 2.65 model calls, p=0.17; the data rule out any saving beyond ~0.6 of a call. Section 3 |
 | my first published numbers were right | **no** — the toggle wrote to a config file the runtime does not read, so both arms ran with the hook on. Section 5 |
 
 I published a measured claim, then went to verify the mechanism behind it and found the
@@ -87,7 +87,7 @@ One thing in the corrected data does point the way the first claim did: across a
 with the hook on, **1** answered in a single model call; across all 8 runs with it off,
 **0** did. That is consistent with injected context occasionally saving a round-trip — and at
 this sample size it is just as consistent with chance. It is a hypothesis worth a proper test (more
-runs, tool-choice traces), not a result, and it is written here as a hypothesis.
+runs, tool-choice traces), not a result — so section 3.3 tests it.
 
 ### 3.2 The first attempt, and why it was invalid
 
@@ -103,6 +103,32 @@ Both arms of that run had the hook **on**. The toggle wrote
 but the runtime reads `get_config_path()`, which resolves to `$HERMES_HOME/config.yaml` —
 a different file. Nothing was toggled; the 2× difference was run-to-run variance that
 happened to line up with the arm labels. Section 5 is the postmortem.
+
+
+### 3.3 The hypothesis, tested properly
+
+n=20 per arm on the same question, arms interleaved ON/OFF so drift cannot wear an arm label, and the
+plugin's own `load_settings()` asserted before every single run. Pooled with the earlier verified n=5:
+
+| arm | n | model calls (mean) | sd | single-call runs | mean input tokens |
+| --- | --- | --- | --- | --- | --- |
+| hook ON | 24 | **2.42** | 0.64 | 2/24 | 54,163 |
+| hook OFF | 23 | **2.65** | 0.48 | 0/23 | 60,017 |
+
+Difference **-0.236 calls**, SE 0.168, Welch t=-1.40 (df=42.5), **p=0.168**. 95% CI [-0.574, +0.103].
+
+Read that honestly, and it is the same verdict as before, now with a bound on it: the direction still
+favours the hook — 2 single-call runs with it on, 0 with it off, and about a
+tenth fewer input tokens as a consequence of fewer calls — but **p=0.17 is not evidence of an effect**, and the
+interval rules out anything larger than roughly a fifth of a call (0.57 of 2.65, ~22%).
+For a two-call question that is a tenth of the cost of the turn at most. Anyone claiming a hook of this
+shape halves your calls should be asked for an interval, not a mean.
+
+
+3 of 40 runs wrote no usage file and returned an empty answer, so they are excluded rather
+than scored as zero-call turns: `OFF #9` (264s), `ON #10` (23s), `OFF #10` (73s).
+A run that produced nothing is not a run that needed no tool call, and quietly counting it as a win is
+exactly how a result like this gets faked.
 
 
 ## 4. Unrelated turns pay nothing

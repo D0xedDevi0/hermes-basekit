@@ -9,6 +9,7 @@ Reads three captures:
 """
 import hashlib
 import json
+import math
 import shutil
 import statistics as st
 from pathlib import Path
@@ -52,6 +53,83 @@ def singles(q, a):
     return sum(1 for c in calls(q, a) if c == 1)
 
 
+# ---- the powered run: n=20/arm interleaved, pooled with the verified n=5 ------
+power_raw = [json.loads(l) for l in open(SCRATCH / "hook-power.jsonl") if l.strip()]
+power_bad = [r for r in power_raw if r["api_calls"] is None]
+power_ok = [r for r in power_raw if r["api_calls"] is not None]
+pool_on = [r["api_calls"] for r in power_ok if r["arm"] == "ON"] + [r["api_calls"] for r in ab2["main"]["ON"]]
+pool_off = [r["api_calls"] for r in power_ok if r["arm"] == "OFF"] + [r["api_calls"] for r in ab2["main"]["OFF"]]
+pool_tok_on = [r["input_tokens"] for r in power_ok if r["arm"] == "ON" and r["input_tokens"]] + [r["input_tokens"] for r in ab2["main"]["ON"]]
+pool_tok_off = [r["input_tokens"] for r in power_ok if r["arm"] == "OFF" and r["input_tokens"]] + [r["input_tokens"] for r in ab2["main"]["OFF"]]
+ma, mb = st.mean(pool_on), st.mean(pool_off)
+va, vb = st.variance(pool_on) / len(pool_on), st.variance(pool_off) / len(pool_off)
+se = math.sqrt(va + vb)
+diff = ma - mb
+tstat = diff / se
+dof = (va + vb) ** 2 / (va ** 2 / (len(pool_on) - 1) + vb ** 2 / (len(pool_off) - 1))
+
+
+def _betacf(a, b, x):
+    MAXIT, EPS, FPMIN = 300, 3e-14, 1e-300
+    qab, qap, qam = a + b, a + 1.0, a - 1.0
+    c, d = 1.0, 1.0 - qab * x / qap
+    d = 1.0 / (d if abs(d) > FPMIN else FPMIN)
+    h = d
+    for m in range(1, MAXIT + 1):
+        m2 = 2 * m
+        aa = m * (b - m) * x / ((qam + m2) * (a + m2))
+        d = 1.0 + aa * d
+        d = 1.0 / (d if abs(d) > FPMIN else FPMIN)
+        c = 1.0 + aa / c
+        c = c if abs(c) > FPMIN else FPMIN
+        h *= d * c
+        aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2))
+        d = 1.0 + aa * d
+        d = 1.0 / (d if abs(d) > FPMIN else FPMIN)
+        c = 1.0 + aa / c
+        c = c if abs(c) > FPMIN else FPMIN
+        de = d * c
+        h *= de
+        if abs(de - 1.0) < EPS:
+            break
+    return h
+
+
+def _betai(a, b, x):
+    if x <= 0:
+        return 0.0
+    if x >= 1:
+        return 1.0
+    lbeta = math.lgamma(a + b) - math.lgamma(a) - math.lgamma(b)
+    bt = math.exp(lbeta + a * math.log(x) + b * math.log(1 - x))
+    if x < (a + 1) / (a + b + 2):
+        return bt * _betacf(a, b, x) / a
+    return 1.0 - bt * _betacf(b, a, 1 - x) / b
+
+
+def t_p(t, df):
+    """Two-sided p for Student's t, exact to double precision."""
+    return _betai(df / 2.0, 0.5, df / (df + t * t))
+
+
+def t_crit_975(df):
+    lo, hi = 0.0, 100.0
+    for _ in range(200):
+        mid = (lo + hi) / 2.0
+        if t_p(mid, df) > 0.05:
+            lo = mid
+        else:
+            hi = mid
+    return (lo + hi) / 2.0
+
+
+p_pooled = t_p(tstat, dof)
+tcrit = t_crit_975(dof)
+ci_lo, ci_hi = diff - tcrit * se, diff + tcrit * se
+pool_single_on = sum(1 for c in pool_on if c == 1)
+pool_single_off = sum(1 for c in pool_off if c == 1)
+
+
 gate_order = ["a Base turn", "unrelated work", "one ambiguous word",
               "two ambiguous words", "a bare Base address", "a tx hash"]
 
@@ -68,9 +146,9 @@ L.append("| --- | --- |")
 L.append("| the `pre_llm_call` gate fires only on Base turns, and its decision costs nothing | **holds** — measured directly, section 1 |")
 L.append("| the injected line is real, fresh and bounded in size | **holds** — section 2 |")
 L.append("| unrelated turns pay nothing for having basekit installed | **holds** — +6 tokens against baseline, section 4 |")
-L.append(f"| the hook removes a tool round-trip and halves token cost | **does not hold** — corrected A/B: "
-         f"{mean(arm('main','ON'),'api_calls'):.2f} vs {mean(arm('main','OFF'),'api_calls'):.2f} model calls, "
-         f"differences inside noise. Section 3 |")
+L.append(f"| the hook removes a tool round-trip and halves token cost | **does not hold** — powered A/B "
+         f"(pooled n={len(pool_on)} vs {len(pool_off)}, same question): {ma:.2f} vs {mb:.2f} model calls, "
+         f"p={p_pooled:.2f}; the data rule out any saving beyond ~{abs(ci_lo):.1f} of a call. Section 3 |")
 L.append("| my first published numbers were right | **no** — the toggle wrote to a config file the runtime "
          "does not read, so both arms ran with the hook on. Section 5 |")
 L.append("")
@@ -121,15 +199,15 @@ L.append(f"On the first question the hook-on arm used *fewer* calls "
          "per turn whether to fetch, that is all this is. **The honest reading: the model calls\n"
          "`base_network` whether or not the number is already in its prompt** — on the block-number\n"
          "question the injected line carried the answer verbatim, and every run still fetched it.\n")
-pool_on = singles("main", "ON") + singles("block", "ON")
-pool_off = singles("main", "OFF") + singles("block", "OFF")
+hyp_single_on = singles("main", "ON") + singles("block", "ON")
+hyp_single_off = singles("main", "OFF") + singles("block", "OFF")
 n_on = len(arm("main", "ON")) + len(arm("block", "ON"))
 n_off = len(arm("main", "OFF")) + len(arm("block", "OFF"))
 L.append(f"\nOne thing in the corrected data does point the way the first claim did: across all {n_on} valid runs\n"
-         f"with the hook on, **{pool_on}** answered in a single model call; across all {n_off} runs with it off,\n"
-         f"**{pool_off}** did. That is consistent with injected context occasionally saving a round-trip — and at\n"
+         f"with the hook on, **{hyp_single_on}** answered in a single model call; across all {n_off} runs with it off,\n"
+         f"**{hyp_single_off}** did. That is consistent with injected context occasionally saving a round-trip — and at\n"
          "this sample size it is just as consistent with chance. It is a hypothesis worth a proper test (more\n"
-         "runs, tool-choice traces), not a result, and it is written here as a hypothesis.\n")
+         "runs, tool-choice traces), not a result — so section 3.3 tests it.\n")
 
 L.append("### 3.2 The first attempt, and why it was invalid\n")
 L.append("It produced this, and it was published before anyone checked the mechanism:\n")
@@ -146,6 +224,26 @@ L.append("Both arms of that run had the hook **on**. The toggle wrote\n"
          "a different file. Nothing was toggled; the 2× difference was run-to-run variance that\n"
          "happened to line up with the arm labels. Section 5 is the postmortem.\n")
 
+L.append("\n### 3.3 The hypothesis, tested properly\n")
+L.append(f"n=20 per arm on the same question, arms interleaved ON/OFF so drift cannot wear an arm label, and the\n"
+         f"plugin's own `load_settings()` asserted before every single run. Pooled with the earlier verified n=5:\n")
+L.append("| arm | n | model calls (mean) | sd | single-call runs | mean input tokens |")
+L.append("| --- | --- | --- | --- | --- | --- |")
+L.append(f"| hook ON | {len(pool_on)} | **{ma:.2f}** | {st.pstdev(pool_on):.2f} | {pool_single_on}/{len(pool_on)} | {int(st.mean(pool_tok_on)):,} |")
+L.append(f"| hook OFF | {len(pool_off)} | **{mb:.2f}** | {st.pstdev(pool_off):.2f} | {pool_single_off}/{len(pool_off)} | {int(st.mean(pool_tok_off)):,} |")
+L.append("")
+L.append(f"Difference **{diff:+.3f} calls**, SE {se:.3f}, Welch t={tstat:.2f} (df={dof:.1f}), **p={p_pooled:.3f}**. "
+         f"95% CI [{ci_lo:+.3f}, {ci_hi:+.3f}].\n")
+L.append(f"Read that honestly, and it is the same verdict as before, now with a bound on it: the direction still\n"
+         f"favours the hook — {(pool_single_on)} single-call runs with it on, {pool_single_off} with it off, and about a\n"
+         f"tenth fewer input tokens as a consequence of fewer calls — but **p={p_pooled:.2f} is not evidence of an effect**, and the\n"
+         f"interval rules out anything larger than roughly a fifth of a call ({abs(ci_lo):.2f} of {mb:.2f}, ~{abs(ci_lo)/mb:.0%}).\n"
+         "For a two-call question that is a tenth of the cost of the turn at most. Anyone claiming a hook of this\n"
+         "shape halves your calls should be asked for an interval, not a mean.\n")
+L.append(f"\n{len(power_bad)} of {len(power_raw)} runs wrote no usage file and returned an empty answer, so they are excluded rather\n"
+         "than scored as zero-call turns: " + ", ".join(f"`{r['arm']} #{r['i']}` ({r['seconds']:.0f}s)" for r in power_bad) + ".\n"
+         "A run that produced nothing is not a run that needed no tool call, and quietly counting it as a win is\n"
+         "exactly how a result like this gets faked.\n")
 L.append("\n## 4. Unrelated turns pay nothing\n")
 BL = base_usage["input_tokens"]
 nb = ab1["NONBASE"][0]

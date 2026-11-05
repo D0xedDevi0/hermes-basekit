@@ -5,8 +5,10 @@
 **Hermes Agent Plugin Hackathon entry.** A read-only plugin that gives the agent (and the
 desktop UI) real answers about Base — chain 8453 — instead of plausible-sounding ones.
 
-**Demo — 84 seconds, every number on screen read from Base mainnet during the recording:**
-[basekit on X](https://x.com/D0xedDevi0/status/2118313306314232114)
+**Demos — every number in both was read from Base mainnet during the recording:**
+
+- [basekit in 84 seconds](https://x.com/D0xedDevi0/status/2118313306314232114) — the plugin working: live chain state, tool calls, real decodes
+- [the hook, measured](https://x.com/D0xedDevi0/status/2118380730652721171) — hook on vs off, 82 seconds
 
 Six agent tools, a `pre_llm_call` context injection, a `/basekit` slash command, a
 `hermes basekit` CLI command, a bundled skill, a desktop pane, a status-bar chip, a ⌘K
@@ -114,7 +116,9 @@ Saying so proves nothing, so it is measured in **[docs/hook-proof.md](docs/hook-
 
 The raw captures are in [`docs/evidence/`](docs/evidence) with their sha256s, and
 `scripts/build_hook_proof.py` regenerates the whole page from them — no number in that
-document is hand-typed.
+document is hand-typed. The 82-second walkthrough is
+[on X](https://x.com/D0xedDevi0/status/2118380730652721171) and in the repo at
+[`docs/hook-proof.mp4`](docs/hook-proof.mp4).
 
 ```bash
 python3 -m unittest discover -s tests -p "test_*.py"   # offline, no network

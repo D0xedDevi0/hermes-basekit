@@ -146,7 +146,7 @@ L.append("| --- | --- |")
 for f in ("hook-ab.json", "hook-gate.json", "baseline-usage.json"):
     L.append(f"| `docs/evidence/{f}` | `{sha(EVID / f)}` |")
 L.append("")
-L.append("An 82-second walkthrough of these results ships with the repo: `docs/hook-proof.mp4`\n(1600x900, 82.0s, h264). It renders these captures frame by frame — the numbers in it are the\nnumbers above, so it adds narration rather than evidence.\n")
+L.append("An 82-second walkthrough of these results ships with the repo: `docs/hook-proof.mp4`\n(1600x900, 82.0s, h264) and is posted at https://x.com/D0xedDevi0/status/2118380730652721171 .\nIt renders these captures frame by frame — the numbers in it are the numbers above, so it adds\nnarration rather than evidence.\n")
 
 out = DOCS / "hook-proof.md"
 out.write_text("\n".join(L) + "\n")

@@ -129,6 +129,7 @@ YAML
 | `docs/evidence/baseline-usage.json` | `65f4a785f2262909650e4cfd2c9ab26996a52fa73ebe23d42b8b8080d9290d1b` |
 
 An 82-second walkthrough of these results ships with the repo: `docs/hook-proof.mp4`
-(1600x900, 82.0s, h264). It renders these captures frame by frame — the numbers in it are the
-numbers above, so it adds narration rather than evidence.
+(1600x900, 82.0s, h264) and is posted at https://x.com/D0xedDevi0/status/2118380730652721171 .
+It renders these captures frame by frame — the numbers in it are the numbers above, so it adds
+narration rather than evidence.
 

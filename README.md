@@ -44,13 +44,28 @@ fees.
 
 ## Install
 
+One command, from the Hermes plugin catalog:
+
 ```bash
-git clone https://github.com/D0xedDevi0/hermes-basekit ~/.hermes/plugins/basekit
+hermes plugins install basekit
 ```
 
-Then enable both halves in **Settings → Plugins** (the desktop half and the Python half
-each have a switch, both off by default — standard for unified packages). Nothing is
-exposed until you turn it on. To use your own node, set `rpc_url` in the plugin settings.
+If the catalog in your build doesn't carry the name yet, install straight from the repo —
+identical code, validated by the same gate:
+
+```bash
+hermes plugins install D0xedDevi0/hermes-basekit
+```
+
+Then make sure it's enabled — **Settings → Plugins**, or:
+
+```bash
+hermes plugins enable basekit
+```
+
+The desktop half and the Python half each have their own switch, both off by default, which
+is standard for unified packages. Nothing is exposed until you turn it on. To use your own
+node, set `rpc_url` in the plugin settings.
 
 ## Verified against live Base
 
